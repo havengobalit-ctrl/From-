@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ใบลางาน — Haven Gobal</title>
+<title>ใบลางาน — Global</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
@@ -278,13 +278,47 @@
     color:var(--slate);
     margin-top:18px;
   }
+  .sig-canvas{
+    width:100%;
+    height:180px;
+    display:block;
+    border:1.5px dashed var(--line);
+    border-radius:8px;
+    background:#FCFBF8;
+    touch-action:none;
+    cursor:crosshair;
+  }
+  .sig-canvas.has-ink{
+    border-style:solid;
+    border-color:var(--brass);
+  }
+  .sig-actions{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-top:10px;
+  }
+  button.sig-clear{
+    background:none;
+    border:1.5px solid var(--line);
+    color:var(--slate);
+    font-family:'Sarabun',sans-serif;
+    font-size:13.5px;
+    font-weight:600;
+    padding:8px 14px;
+    border-radius:8px;
+    cursor:pointer;
+    transition:border-color .15s, color .15s;
+  }
+  button.sig-clear:hover{border-color:var(--brass); color:var(--brass-deep);}
 </style>
 </head>
 <body>
 
 <header class="top">
-  <div class="eyebrow">HAVEN GLOBAL</div>
+  <div class="eyebrow">GLOBAL — ระบบสารสนเทศบุคคล</div>
   <h1>ใบลางาน</h1>
+  <p>กรอกแบบฟอร์มด้านล่าง ระบบจะจัดทำใบลาเป็น PDF และส่งกลับให้ทาง LINE นี้โดยอัตโนมัติ</p>
   <div class="liff-user" id="liffUserChip" style="display:none;">
     <img id="liffUserImg" src="" alt="">
     <span id="liffUserName"></span>
@@ -502,6 +536,20 @@
         </div>
       </div>
 
+      <!-- Section 6: ลายเซ็นผู้ขอลา -->
+      <div class="section">
+        <div class="section-head">
+          <span class="section-num">06</span>
+          <span class="section-title">ลายเซ็นผู้ขอลา <span class="req">*</span></span>
+        </div>
+        <canvas id="sigCanvas" class="sig-canvas"></canvas>
+        <div class="sig-actions">
+          <span class="hint">ลงลายมือชื่อด้วยนิ้วหรือเมาส์ในกรอบด้านบน</span>
+          <button type="button" class="sig-clear" id="sigClearBtn">ล้างลายเซ็น</button>
+        </div>
+        <input type="hidden" name="ลายเซ็น" id="signatureData" value="">
+      </div>
+
       <input type="hidden" name="lineUserId" id="lineUserId">
       <input type="hidden" name="lineDisplayName" id="lineDisplayName">
 
@@ -578,16 +626,80 @@
   startInput.addEventListener('change', calcDays);
   endInput.addEventListener('change', calcDays);
 
+  // ---- ลายเซ็นผู้ขอลา (วาดด้วยนิ้วหรือเมาส์) ----
+  const sigCanvas = document.getElementById('sigCanvas');
+  const sigCtx = sigCanvas.getContext('2d');
+  const signatureData = document.getElementById('signatureData');
+  const sigClearBtn = document.getElementById('sigClearBtn');
+  let hasSignature = false;
+  let drawing = false;
+
+  function setupSigCanvas(){
+    const ratio = window.devicePixelRatio || 1;
+    const rect = sigCanvas.getBoundingClientRect();
+    sigCanvas.width = rect.width * ratio;
+    sigCanvas.height = rect.height * ratio;
+    sigCtx.scale(ratio, ratio);
+    sigCtx.lineWidth = 2.4;
+    sigCtx.lineCap = 'round';
+    sigCtx.lineJoin = 'round';
+    sigCtx.strokeStyle = '#101B33';
+  }
+  setupSigCanvas();
+
+  function sigPos(evt){
+    const rect = sigCanvas.getBoundingClientRect();
+    return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
+  }
+  function sigStart(evt){
+    drawing = true;
+    hasSignature = true;
+    sigCanvas.classList.add('has-ink');
+    const pos = sigPos(evt);
+    sigCtx.beginPath();
+    sigCtx.moveTo(pos.x, pos.y);
+    evt.preventDefault();
+  }
+  function sigMove(evt){
+    if(!drawing) return;
+    const pos = sigPos(evt);
+    sigCtx.lineTo(pos.x, pos.y);
+    sigCtx.stroke();
+    evt.preventDefault();
+  }
+  function sigEnd(){ drawing = false; }
+
+  sigCanvas.addEventListener('pointerdown', sigStart);
+  sigCanvas.addEventListener('pointermove', sigMove);
+  window.addEventListener('pointerup', sigEnd);
+
+  sigClearBtn.addEventListener('click', ()=>{
+    sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
+    hasSignature = false;
+    signatureData.value = "";
+    sigCanvas.classList.remove('has-ink');
+  });
+
   // Submit handling
   const submitBtn = document.getElementById('submitBtn');
   const statusBox = document.getElementById('statusBox');
 
-  form.addEventListener('submit', function(){
+  form.addEventListener('submit', function(e){
     if(SCRIPT_URL.includes("PASTE_YOUR")){
+      e.preventDefault();
       statusBox.className = "status show err";
       statusBox.textContent = "ยังไม่ได้ตั้งค่า Google Apps Script URL — โปรดดูคำแนะนำการติดตั้ง";
-      return false;
+      return;
     }
+    if(!hasSignature){
+      e.preventDefault();
+      statusBox.className = "status show err";
+      statusBox.textContent = "กรุณาลงลายมือชื่อในช่องข้อ 06 ก่อนส่งใบลางาน";
+      sigCanvas.scrollIntoView({behavior:"smooth", block:"center"});
+      return;
+    }
+    signatureData.value = sigCanvas.toDataURL('image/png');
+
     submitBtn.disabled = true;
     submitBtn.textContent = "กำลังส่งข้อมูล...";
     statusBox.className = "status";
@@ -603,6 +715,9 @@
       form.reset();
       subFieldBlocks.forEach(b=>b.classList.remove('show'));
       totalDaysInput.value = 0;
+      sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
+      hasSignature = false;
+      sigCanvas.classList.remove('has-ink');
       if (liff.isInClient && liff.isInClient()) {
         setTimeout(()=>{ liff.closeWindow(); }, 3500);
       }
