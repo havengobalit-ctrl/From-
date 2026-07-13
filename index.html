@@ -278,9 +278,85 @@
     color:var(--slate);
     margin-top:18px;
   }
+  .sig-preview-wrap{
+    width:100%;
+    min-height:110px;
+    border:1.5px dashed var(--line);
+    border-radius:8px;
+    background:#FCFBF8;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:10px;
+    margin-bottom:12px;
+  }
+  .sig-preview-wrap.has-sig{
+    border-style:solid;
+    border-color:var(--brass);
+    background:#fff;
+  }
+  .sig-placeholder{
+    font-size:14px;
+    color:var(--slate);
+  }
+  .sig-preview-img{
+    max-width:100%;
+    max-height:130px;
+  }
+  button.sig-open-btn{
+    width:100%;
+    padding:13px;
+    font-family:'Sarabun',sans-serif;
+    font-size:15px;
+    font-weight:700;
+    color:var(--navy-deep);
+    background:#fff;
+    border:1.5px solid var(--brass);
+    border-radius:8px;
+    cursor:pointer;
+    transition:background .15s;
+  }
+  button.sig-open-btn:hover{background:#FBF7EF;}
+  .sig-modal-overlay{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(16,27,51,0.55);
+    z-index:1000;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+  }
+  .sig-modal-overlay.show{display:flex;}
+  .sig-modal{
+    background:#fff;
+    border-radius:12px;
+    width:100%;
+    max-width:480px;
+    padding:20px;
+    box-shadow:0 20px 60px rgba(16,27,51,0.35);
+  }
+  .sig-modal-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:14px;
+    font-size:16px;
+    font-weight:700;
+    color:var(--navy-deep);
+  }
+  .sig-modal-close{
+    background:none;
+    border:none;
+    font-size:26px;
+    line-height:1;
+    color:var(--slate);
+    cursor:pointer;
+    padding:0 4px;
+  }
   .sig-canvas{
     width:100%;
-    height:180px;
+    height:220px;
     display:block;
     border:1.5px dashed var(--line);
     border-radius:8px;
@@ -298,6 +374,7 @@
     justify-content:space-between;
     align-items:center;
     margin-top:10px;
+    gap:10px;
   }
   button.sig-clear{
     background:none;
@@ -306,12 +383,26 @@
     font-family:'Sarabun',sans-serif;
     font-size:13.5px;
     font-weight:600;
-    padding:8px 14px;
+    padding:10px 14px;
     border-radius:8px;
     cursor:pointer;
     transition:border-color .15s, color .15s;
   }
   button.sig-clear:hover{border-color:var(--brass); color:var(--brass-deep);}
+  button.sig-confirm{
+    flex:1;
+    background:var(--navy);
+    color:#fff;
+    border:none;
+    font-family:'Sarabun',sans-serif;
+    font-size:14.5px;
+    font-weight:700;
+    padding:10px 14px;
+    border-radius:8px;
+    cursor:pointer;
+    transition:background .15s;
+  }
+  button.sig-confirm:hover{background:var(--navy-deep);}
 </style>
 </head>
 <body>
@@ -543,16 +634,31 @@
           <span class="section-num">06</span>
           <span class="section-title">ลายเซ็นผู้ขอลา <span class="req">*</span></span>
         </div>
-        <canvas id="sigCanvas" class="sig-canvas"></canvas>
-        <div class="sig-actions">
-          <span class="hint">ลงลายมือชื่อด้วยนิ้วหรือเมาส์ในกรอบด้านบน</span>
-          <button type="button" class="sig-clear" id="sigClearBtn">ล้างลายเซ็น</button>
+        <div class="sig-preview-wrap" id="sigPreviewWrap">
+          <span class="sig-placeholder" id="sigPlaceholder">ยังไม่ได้ลงลายมือชื่อ</span>
+          <img id="sigPreviewImg" class="sig-preview-img" style="display:none;" alt="ลายเซ็น">
         </div>
+        <button type="button" class="sig-open-btn" id="sigOpenBtn">✍️ แตะเพื่อลงลายมือชื่อ</button>
         <input type="hidden" name="ลายเซ็น" id="signatureData" value="">
       </div>
 
       <input type="hidden" name="lineUserId" id="lineUserId">
       <input type="hidden" name="lineDisplayName" id="lineDisplayName">
+
+      <!-- Signature Popup -->
+      <div class="sig-modal-overlay" id="sigModalOverlay">
+        <div class="sig-modal">
+          <div class="sig-modal-head">
+            <span>ลงลายมือชื่อ</span>
+            <button type="button" class="sig-modal-close" id="sigModalCloseBtn">&times;</button>
+          </div>
+          <canvas id="sigCanvas" class="sig-canvas"></canvas>
+          <div class="sig-actions">
+            <button type="button" class="sig-clear" id="sigClearBtn">ล้างลายเซ็น</button>
+            <button type="button" class="sig-confirm" id="sigConfirmBtn">ใช้ลายเซ็นนี้</button>
+          </div>
+        </div>
+      </div>
 
       <div class="submit-bar">
         <button type="submit" class="submit" id="submitBtn">ส่งใบลางาน</button>
@@ -627,12 +733,19 @@
   startInput.addEventListener('change', calcDays);
   endInput.addEventListener('change', calcDays);
 
-  // ---- ลายเซ็นผู้ขอลา (วาดด้วยนิ้วหรือเมาส์) ----
+  // ---- ลายเซ็นผู้ขอลา (popup วาดด้วยนิ้วหรือเมาส์) ----
   const sigCanvas = document.getElementById('sigCanvas');
   const sigCtx = sigCanvas.getContext('2d');
   const signatureData = document.getElementById('signatureData');
   const sigClearBtn = document.getElementById('sigClearBtn');
-  let hasSignature = false;
+  const sigConfirmBtn = document.getElementById('sigConfirmBtn');
+  const sigOpenBtn = document.getElementById('sigOpenBtn');
+  const sigModalOverlay = document.getElementById('sigModalOverlay');
+  const sigModalCloseBtn = document.getElementById('sigModalCloseBtn');
+  const sigPreviewWrap = document.getElementById('sigPreviewWrap');
+  const sigPlaceholder = document.getElementById('sigPlaceholder');
+  const sigPreviewImg = document.getElementById('sigPreviewImg');
+  let hasInk = false;
   let drawing = false;
 
   function setupSigCanvas(){
@@ -646,7 +759,32 @@
     sigCtx.lineJoin = 'round';
     sigCtx.strokeStyle = '#101B33';
   }
-  setupSigCanvas();
+
+  function openSigModal(){
+    sigModalOverlay.classList.add('show');
+    document.body.style.overflow = 'hidden';
+    // canvas ต้องตั้งค่าหลังจาก popup แสดงผลแล้ว ไม่งั้นจะได้ขนาด 0
+    requestAnimationFrame(()=>{
+      setupSigCanvas();
+      hasInk = false;
+      sigCanvas.classList.remove('has-ink');
+      // ถ้ามีลายเซ็นที่เคยยืนยันไว้แล้ว ให้โหลดมาแสดงเพื่อแก้ไขต่อได้
+      if (signatureData.value) {
+        const img = new Image();
+        img.onload = function(){
+          const ratio = window.devicePixelRatio || 1;
+          sigCtx.drawImage(img, 0, 0, sigCanvas.width / ratio, sigCanvas.height / ratio);
+          hasInk = true;
+          sigCanvas.classList.add('has-ink');
+        };
+        img.src = signatureData.value;
+      }
+    });
+  }
+  function closeSigModal(){
+    sigModalOverlay.classList.remove('show');
+    document.body.style.overflow = '';
+  }
 
   function sigPos(evt){
     const rect = sigCanvas.getBoundingClientRect();
@@ -655,7 +793,7 @@
   function preventPageScroll(evt){ evt.preventDefault(); }
   function sigStart(evt){
     drawing = true;
-    hasSignature = true;
+    hasInk = true;
     sigCanvas.classList.add('has-ink');
     if (sigCanvas.setPointerCapture) {
       try { sigCanvas.setPointerCapture(evt.pointerId); } catch(e){}
@@ -684,12 +822,40 @@
   window.addEventListener('pointerup', sigEnd);
   window.addEventListener('pointercancel', sigEnd);
 
+  sigOpenBtn.addEventListener('click', openSigModal);
+  sigPreviewWrap.addEventListener('click', openSigModal);
+  sigModalCloseBtn.addEventListener('click', closeSigModal);
+  // แตะพื้นหลังมืดๆ นอกกล่อง popup ก็ปิดได้เหมือนกัน
+  sigModalOverlay.addEventListener('click', (e)=>{
+    if (e.target === sigModalOverlay) closeSigModal();
+  });
+
   sigClearBtn.addEventListener('click', ()=>{
     sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
-    hasSignature = false;
-    signatureData.value = "";
+    hasInk = false;
     sigCanvas.classList.remove('has-ink');
   });
+
+  sigConfirmBtn.addEventListener('click', ()=>{
+    if (!hasInk) {
+      statusBoxShakeSig();
+      return;
+    }
+    const dataUrl = sigCanvas.toDataURL('image/png');
+    signatureData.value = dataUrl;
+    sigPreviewImg.src = dataUrl;
+    sigPreviewImg.style.display = 'block';
+    sigPlaceholder.style.display = 'none';
+    sigPreviewWrap.classList.add('has-sig');
+    sigOpenBtn.textContent = '✍️ แก้ไขลายเซ็น';
+    closeSigModal();
+  });
+
+  function statusBoxShakeSig(){
+    sigCanvas.style.borderColor = '#B4432C';
+    setTimeout(()=>{ sigCanvas.style.borderColor = ''; }, 600);
+  }
+
 
   // Submit handling
   const submitBtn = document.getElementById('submitBtn');
@@ -702,14 +868,13 @@
       statusBox.textContent = "ยังไม่ได้ตั้งค่า Google Apps Script URL — โปรดดูคำแนะนำการติดตั้ง";
       return;
     }
-    if(!hasSignature){
+    if(!signatureData.value){
       e.preventDefault();
       statusBox.className = "status show err";
       statusBox.textContent = "กรุณาลงลายมือชื่อในช่องข้อ 06 ก่อนส่งใบลางาน";
-      sigCanvas.scrollIntoView({behavior:"smooth", block:"center"});
+      sigOpenBtn.scrollIntoView({behavior:"smooth", block:"center"});
       return;
     }
-    signatureData.value = sigCanvas.toDataURL('image/png');
 
     submitBtn.disabled = true;
     submitBtn.textContent = "กำลังส่งข้อมูล...";
@@ -727,8 +892,13 @@
       subFieldBlocks.forEach(b=>b.classList.remove('show'));
       totalDaysInput.value = 0;
       sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
-      hasSignature = false;
+      hasInk = false;
       sigCanvas.classList.remove('has-ink');
+      sigPreviewImg.style.display = 'none';
+      sigPreviewImg.src = '';
+      sigPlaceholder.style.display = 'block';
+      sigPreviewWrap.classList.remove('has-sig');
+      sigOpenBtn.textContent = '✍️ แตะเพื่อลงลายมือชื่อ';
       if (liff.isInClient && liff.isInClient()) {
         setTimeout(()=>{ liff.closeWindow(); }, 3500);
       }
