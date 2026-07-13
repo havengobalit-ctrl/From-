@@ -37,7 +37,7 @@
   header.top{
     background:var(--navy);
     color:#fff;
-    padding:36px 16px 46px;
+    padding:64px 16px 46px;
     text-align:center;
     position:relative;
     overflow:hidden;
@@ -85,7 +85,7 @@
   .card{
     background:var(--card);
     border-radius:var(--radius);
-    margin-top:-28px;
+    margin-top:-14px;
     box-shadow:0 10px 30px rgba(16,27,51,0.10);
     overflow:hidden;
   }
@@ -94,6 +94,7 @@
     border-bottom:1px solid var(--line);
   }
   .section:last-child{border-bottom:none;}
+  .section:first-child{padding-top:34px;}
   .section-head{
     display:flex;
     align-items:baseline;
@@ -306,15 +307,9 @@
             <label>วันที่ยื่นใบลา <span class="req">*</span></label>
             <input type="date" name="วันที่ยื่นใบลา" required>
           </div>
-          <div class="field full">
-            <label>เรื่อง <span class="req">*</span></label>
-            <input type="text" name="เรื่อง" placeholder="เช่น ขอลาป่วย" required>
-          </div>
-          <div class="field full">
-            <label>เรียน</label>
-            <input type="text" name="เรียน" value="กรรมการผู้จัดการบริษัท / ผู้บังคับบัญชาขั้นต้น">
-          </div>
         </div>
+        <input type="hidden" name="เรื่อง" id="subjectField" value="">
+        <input type="hidden" name="เรียน" value="กรรมการผู้จัดการบริษัท / ผู้บังคับบัญชาขั้นต้น">
       </div>
 
       <!-- Section 2: ข้อมูลผู้ลา -->
@@ -487,9 +482,13 @@
         </div>
         <div class="total-days">
           <span>รวมจำนวนวัน</span>
-          <span><span class="num" id="totalDaysNum">0</span> วัน</span>
+          <span style="display:flex; align-items:center; gap:8px;">
+            <input type="number" min="0" step="0.5" id="totalDaysInput" name="รวมจำนวนวัน" value="0"
+              style="width:70px; text-align:right; font-weight:700; font-size:16px; color:var(--navy-deep); background:#fff; border:1.5px solid transparent; border-radius:6px; padding:6px 8px;">
+            <span>วัน</span>
+          </span>
         </div>
-        <input type="hidden" name="รวมจำนวนวัน" id="totalDaysHidden" value="0">
+        <div class="hint" style="color:#B9C2D6; text-align:right;">ระบบคำนวณให้อัตโนมัติจากวันที่ แต่สามารถแก้ไขตัวเลขเองได้</div>
       </div>
 
       <!-- Section 5: การติดต่อระหว่างลา -->
@@ -551,19 +550,20 @@
 
   // Toggle sub-fields based on selected leave type
   const subFieldBlocks = document.querySelectorAll('.sub-fields');
+  const subjectField = document.getElementById('subjectField');
   document.querySelectorAll('input[name="ประเภทการลา"]').forEach(radio=>{
     radio.addEventListener('change', ()=>{
       subFieldBlocks.forEach(block=>{
         block.classList.toggle('show', block.dataset.for === radio.value);
       });
+      subjectField.value = "ขอ" + radio.value;
     });
   });
 
   // Auto calculate total days
   const startInput = document.getElementById('startDate');
   const endInput = document.getElementById('endDate');
-  const totalDaysNum = document.getElementById('totalDaysNum');
-  const totalDaysHidden = document.getElementById('totalDaysHidden');
+  const totalDaysInput = document.getElementById('totalDaysInput');
 
   function calcDays(){
     if(startInput.value && endInput.value){
@@ -571,11 +571,9 @@
       const end = new Date(endInput.value);
       const diff = Math.round((end - start) / (1000*60*60*24)) + 1;
       const days = diff > 0 ? diff : 0;
-      totalDaysNum.textContent = days;
-      totalDaysHidden.value = days;
+      totalDaysInput.value = days;
     } else {
-      totalDaysNum.textContent = 0;
-      totalDaysHidden.value = 0;
+      totalDaysInput.value = 0;
     }
   }
   startInput.addEventListener('change', calcDays);
@@ -605,8 +603,7 @@
       statusBox.textContent = "ส่งใบลางานเรียบร้อยแล้ว ✓ ระบบกำลังจัดทำไฟล์ PDF และจะส่งกลับมาทางแชท LINE นี้ในอีกสักครู่";
       form.reset();
       subFieldBlocks.forEach(b=>b.classList.remove('show'));
-      totalDaysNum.textContent = 0;
-      totalDaysHidden.value = 0;
+      totalDaysInput.value = 0;
       if (liff.isInClient && liff.isInClient()) {
         setTimeout(()=>{ liff.closeWindow(); }, 3500);
       }
