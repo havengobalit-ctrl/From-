@@ -286,6 +286,7 @@
     border-radius:8px;
     background:#FCFBF8;
     touch-action:none;
+    overscroll-behavior:none;
     cursor:crosshair;
   }
   .sig-canvas.has-ink{
@@ -651,14 +652,20 @@
     const rect = sigCanvas.getBoundingClientRect();
     return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
   }
+  function preventPageScroll(evt){ evt.preventDefault(); }
   function sigStart(evt){
     drawing = true;
     hasSignature = true;
     sigCanvas.classList.add('has-ink');
+    if (sigCanvas.setPointerCapture) {
+      try { sigCanvas.setPointerCapture(evt.pointerId); } catch(e){}
+    }
     const pos = sigPos(evt);
     sigCtx.beginPath();
     sigCtx.moveTo(pos.x, pos.y);
     evt.preventDefault();
+    // ล็อกไม่ให้หน้าจอทั้งหน้าเลื่อนตามนิ้วขณะกำลังวาดลายเซ็น
+    document.addEventListener('touchmove', preventPageScroll, {passive:false});
   }
   function sigMove(evt){
     if(!drawing) return;
@@ -667,11 +674,15 @@
     sigCtx.stroke();
     evt.preventDefault();
   }
-  function sigEnd(){ drawing = false; }
+  function sigEnd(){
+    drawing = false;
+    document.removeEventListener('touchmove', preventPageScroll, {passive:false});
+  }
 
-  sigCanvas.addEventListener('pointerdown', sigStart);
-  sigCanvas.addEventListener('pointermove', sigMove);
+  sigCanvas.addEventListener('pointerdown', sigStart, {passive:false});
+  sigCanvas.addEventListener('pointermove', sigMove, {passive:false});
   window.addEventListener('pointerup', sigEnd);
+  window.addEventListener('pointercancel', sigEnd);
 
   sigClearBtn.addEventListener('click', ()=>{
     sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
